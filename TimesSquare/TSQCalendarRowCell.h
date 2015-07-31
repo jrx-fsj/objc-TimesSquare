@@ -65,4 +65,12 @@
  */
 - (void)selectColumnForDate:(NSDate *)date;
 
+/** Method to select dates within the week.
+ 
+ This is funneled through and called by the calendar view, to facilitate deselection of other rows.
+ 
+ @param dates The dates to select.
+ */
+- (void)selectColumnsForDates:(NSArray *)dates;
+
 @end

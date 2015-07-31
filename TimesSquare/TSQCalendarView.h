@@ -35,13 +35,6 @@
  */
 @property (nonatomic, strong) NSDate *lastDate;
 
-/** The currently-selected date on the calendar.
- 
- Set this property to any `NSDate`; `TSQCalendarView` will only look at the month, day, and year.
- You can read and write this property; the delegate method `calendarView:didSelectDate:` will be called both when a new date is selected from the UI and when this method is called manually.
- */
-@property (nonatomic, strong) NSDate *selectedDate;
-
 /** @name Calendar Configuration */
 
 /** The calendar type to use when displaying.
@@ -104,6 +97,20 @@
  */
 - (void)scrollToDate:(NSDate *)date animated:(BOOL)animated;
 
+/** Selects the specified date.
+ 
+ @param date A date to select.
+ @param silent YES if you want to avoid delegate calls
+ */
+- (void)selectDate:(NSDate *)date silent:(BOOL)silent;
+
+/** Deselects the specified date.
+ 
+ @param date A date to deselect.
+ @param silent YES if you want to avoid delegate calls
+ */
+- (void)deselectDate:(NSDate *)date silent:(BOOL)silent;
+
 @end
 
 /** The methods in the `TSQCalendarViewDelegate` protocol allow the adopting delegate to either prevent a day from being selected or respond to it.
@@ -122,6 +129,14 @@
  @param date Midnight on the date being selected.
  @return Whether or not the date is selectable.
  */
+- (BOOL)calendarView:(TSQCalendarView *)calendarView shouldBeSelectableDate:(NSDate *)date;
+
+/** Asks the delegate whether a particular date should be selected.
+ 
+ @param calendarView The calendar view that is selecting a date.
+ @param date Midnight on the date being selected.
+ @return Whether or not the date should be selected.
+ */
 - (BOOL)calendarView:(TSQCalendarView *)calendarView shouldSelectDate:(NSDate *)date;
 
 /** Tells the delegate that a particular date was selected.
@@ -130,5 +145,21 @@
  @param date Midnight on the date being selected.
  */
 - (void)calendarView:(TSQCalendarView *)calendarView didSelectDate:(NSDate *)date;
+
+/** Asks the delegate whether a particular date should be deselected.
+ 
+ @param calendarView The calendar view that is deselecting a date.
+ @param date Midnight on the date being deselected.
+ @return Whether or not the date should be deselected.
+ */
+- (BOOL)calendarView:(TSQCalendarView *)calendarView shouldDeselectDate:(NSDate *)date;
+
+/** Tells the delegate that a particular date was deselected.
+ 
+ @param calendarView The calendar view that is deselecting a date.
+ @param date Midnight on the date being deselected.
+ */
+- (void)calendarView:(TSQCalendarView *)calendarView didDeselectDate:(NSDate *)date;
+
 
 @end

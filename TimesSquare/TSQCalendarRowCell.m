@@ -15,6 +15,7 @@
 
 @property (nonatomic, strong) NSArray *dayButtons;
 @property (nonatomic, strong) NSArray *notThisMonthButtons;
+@property (nonatomic, strong) NSArray *selectedButtons;
 @property (nonatomic, strong) UIButton *todayButton;
 @property (nonatomic, strong) UIButton *selectedButton;
 
@@ -111,6 +112,21 @@
     
     self.selectedButton.titleLabel.shadowOffset = CGSizeMake(0.0f, -1.0f / [UIScreen mainScreen].scale);
     self.indexOfSelectedButton = -1;
+
+	NSMutableArray *selectedButtons = [NSMutableArray arrayWithCapacity:self.daysInWeek];
+	for (NSUInteger index = 0; index < self.daysInWeek; index++) {
+		UIButton *button = [[UIButton alloc] initWithFrame:self.contentView.bounds];
+		[selectedButtons addObject:button];
+		[self.contentView addSubview:button];
+		[self configureButton:button];
+		[button setAccessibilityTraits:UIAccessibilityTraitSelected|button.accessibilityTraits];
+		[button setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+		[button setBackgroundImage:[self selectedBackgroundImage] forState:UIControlStateNormal];
+		[button setTitleShadowColor:[UIColor colorWithWhite:0.0f alpha:0.75f] forState:UIControlStateNormal];
+		button.titleLabel.shadowOffset = CGSizeMake(0.0f, -1.0f / [UIScreen mainScreen].scale);
+		[button addTarget:self action:@selector(selectedButtonPressed:) forControlEvents:UIControlEventTouchUpInside];
+	}
+	self.selectedButtons = selectedButtons;
 }
 
 - (void)setBeginningDate:(NSDate *)date;
@@ -140,11 +156,14 @@
         [self.notThisMonthButtons[index] setTitle:title forState:UIControlStateNormal];
         [self.notThisMonthButtons[index] setTitle:title forState:UIControlStateDisabled];
         [self.notThisMonthButtons[index] setAccessibilityLabel:accessibilityLabel];
+		[self.selectedButtons[index] setTitle:title forState:UIControlStateNormal];
+		[self.selectedButtons[index] setAccessibilityLabel:accessibilityLabel];
         
         NSDateComponents *thisDateComponents = [self.calendar components:NSDayCalendarUnit|NSMonthCalendarUnit|NSYearCalendarUnit fromDate:date];
         
         [self.dayButtons[index] setHidden:YES];
         [self.notThisMonthButtons[index] setHidden:YES];
+		[self.selectedButtons[index] setHidden:YES];
 
         NSInteger thisDayMonth = thisDateComponents.month;
         if (self.monthOfBeginningDate != thisDayMonth) {
@@ -158,7 +177,7 @@
                 self.indexOfTodayButton = index;
             } else {
                 UIButton *button = self.dayButtons[index];
-                button.enabled = ![self.calendarView.delegate respondsToSelector:@selector(calendarView:shouldSelectDate:)] || [self.calendarView.delegate calendarView:self.calendarView shouldSelectDate:date];
+                button.enabled = ![self.calendarView.delegate respondsToSelector:@selector(calendarView:shouldBeSelectableDate:)] || [self.calendarView.delegate calendarView:self.calendarView shouldBeSelectableDate:date];
                 button.hidden = NO;
             }
         }
@@ -186,7 +205,7 @@
     NSDateComponents *offset = [NSDateComponents new];
     offset.day = [self.dayButtons indexOfObject:sender];
     NSDate *selectedDate = [self.calendar dateByAddingComponents:offset toDate:self.beginningDate options:0];
-    self.calendarView.selectedDate = selectedDate;
+	[self.calendarView selectDate:selectedDate silent:NO];
 }
 
 - (IBAction)todayButtonPressed:(id)sender;
@@ -194,7 +213,15 @@
     NSDateComponents *offset = [NSDateComponents new];
     offset.day = self.indexOfTodayButton;
     NSDate *selectedDate = [self.calendar dateByAddingComponents:offset toDate:self.beginningDate options:0];
-    self.calendarView.selectedDate = selectedDate;
+	[self.calendarView selectDate:selectedDate silent:NO];
+}
+
+- (void)selectedButtonPressed:(UIButton *)button
+{
+	NSDateComponents *offset = [NSDateComponents new];
+	offset.day = [self.selectedButtons indexOfObject:button];
+	NSDate *selectedDate = [self.calendar dateByAddingComponents:offset toDate:self.beginningDate options:0];
+	[self.calendarView deselectDate:selectedDate silent:NO];
 }
 
 - (void)layoutSubviews;
@@ -212,9 +239,11 @@
 {
     UIButton *dayButton = self.dayButtons[index];
     UIButton *notThisMonthButton = self.notThisMonthButtons[index];
-    
+	UIButton *selectedButton = self.selectedButtons[index];
+	
     dayButton.frame = rect;
     notThisMonthButton.frame = rect;
+	selectedButton.frame = rect;
 
     if (self.indexOfTodayButton == (NSInteger)index) {
         self.todayButton.frame = rect;
@@ -226,34 +255,50 @@
 
 - (void)selectColumnForDate:(NSDate *)date;
 {
-    if (!date && self.indexOfSelectedButton == -1) {
-        return;
-    }
+	if(!date) {
+		return;
+	}
 
-    NSInteger newIndexOfSelectedButton = -1;
-    if (date) {
-        NSInteger thisDayMonth = [self.calendar components:NSMonthCalendarUnit fromDate:date].month;
-        if (self.monthOfBeginningDate == thisDayMonth) {
-            newIndexOfSelectedButton = [self.calendar components:NSDayCalendarUnit fromDate:self.beginningDate toDate:date options:0].day;
-            if (newIndexOfSelectedButton >= (NSInteger)self.daysInWeek) {
-                newIndexOfSelectedButton = -1;
-            }
-        }
-    }
-
-    self.indexOfSelectedButton = newIndexOfSelectedButton;
-    
-    if (newIndexOfSelectedButton >= 0) {
-        self.selectedButton.hidden = NO;
+	NSInteger newIndexOfSelectedButton = -1;
+	NSInteger thisDayMonth = [self.calendar components:NSMonthCalendarUnit fromDate:date].month;
+	if (self.monthOfBeginningDate == thisDayMonth) {
+		newIndexOfSelectedButton = [self.calendar components:NSDayCalendarUnit fromDate:self.beginningDate toDate:date options:0].day;
+		if (newIndexOfSelectedButton >= (NSInteger)self.daysInWeek) {
+			newIndexOfSelectedButton = -1;
+		}
+	}
+	if(newIndexOfSelectedButton >= 0) {
+		[self.selectedButtons[newIndexOfSelectedButton] setHidden:!([self.selectedButtons[newIndexOfSelectedButton] isHidden])];
         NSString *newTitle = [self.dayButtons[newIndexOfSelectedButton] currentTitle];
-        [self.selectedButton setTitle:newTitle forState:UIControlStateNormal];
-        [self.selectedButton setTitle:newTitle forState:UIControlStateDisabled];
-        [self.selectedButton setAccessibilityLabel:[self.dayButtons[newIndexOfSelectedButton] accessibilityLabel]];
-    } else {
-        self.selectedButton.hidden = YES;
-    }
-    
-    [self setNeedsLayout];
+        [self.selectedButtons[newIndexOfSelectedButton] setTitle:newTitle forState:UIControlStateNormal];
+        [self.selectedButtons[newIndexOfSelectedButton] setAccessibilityLabel:[self.dayButtons[newIndexOfSelectedButton] accessibilityLabel]];
+	}
+	[self setNeedsLayout];
+}
+
+- (void)selectColumnsForDates:(NSArray *)dates
+{
+	if(!dates) {
+		return;
+	}
+	
+	for(NSDate *date in dates) {
+		NSInteger newIndexOfSelectedButton = -1;
+		NSInteger thisDayMonth = [self.calendar components:NSMonthCalendarUnit fromDate:date].month;
+		if (self.monthOfBeginningDate == thisDayMonth) {
+			newIndexOfSelectedButton = [self.calendar components:NSDayCalendarUnit fromDate:self.beginningDate toDate:date options:0].day;
+			if (newIndexOfSelectedButton >= (NSInteger)self.daysInWeek) {
+				newIndexOfSelectedButton = -1;
+			}
+		}
+		if(newIndexOfSelectedButton >= 0) {
+			[self.selectedButtons[newIndexOfSelectedButton] setHidden:!([self.selectedButtons[newIndexOfSelectedButton] isHidden])];
+			NSString *newTitle = [self.dayButtons[newIndexOfSelectedButton] currentTitle];
+			[self.selectedButtons[newIndexOfSelectedButton] setTitle:newTitle forState:UIControlStateNormal];
+			[self.selectedButtons[newIndexOfSelectedButton] setAccessibilityLabel:[self.dayButtons[newIndexOfSelectedButton] accessibilityLabel]];
+		}
+	}
+	[self setNeedsLayout];
 }
 
 - (NSDateFormatter *)dayFormatter;
